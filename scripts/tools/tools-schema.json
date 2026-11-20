@@ -21,17 +21,20 @@
         "websiteUrl": {
           "type": "string",
           "description": "You can provide URL to the website where your project hosts some demo or project landing page.",
-          "format": "uri"
+          "format": "uri",
+          "pattern": "^https?://"
         },
         "docsUrl": {
           "type": "string",
           "description": "You can provide URL to project documentation in case you have more than just a readme file.",
-          "format": "uri"
+          "format": "uri",
+          "pattern": "^https?://"
         },
         "repoUrl": {
           "type": "string",
           "description": "You can provide URL to project codebase in case you have more than one tool present inside single repository.",
-          "format": "uri"
+          "format": "uri",
+          "pattern": "^https?://"
         }
       }
     },

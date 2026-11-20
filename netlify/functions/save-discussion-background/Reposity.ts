@@ -11,8 +11,8 @@ export namespace Repository {
    */
   export async function getDiscussionCategories(repoOwner: string,
     repoName: string): Promise<DiscussionCategory[]> {
-    const query = `query {
-      repository(owner: "${repoOwner}", name: "${repoName}"){
+    const query = `query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name){
         id
         discussionCategories(first: 10) {
           nodes {
@@ -22,15 +22,15 @@ export namespace Repository {
         }
       }
     }`;
-    const { repository } = await fetchGraphql(query);
+    const { repository } = await fetchGraphql(query, { owner: repoOwner, name: repoName });
 
     return repository.discussionCategories.nodes;
   }
 
   export async function getRepositoryId(owner: string,
     name: string): Promise<string> {
-    const query = `query {
-      repository(owner: "${owner}", name: "${name}"){
+    const query = `query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name){
         id
         discussionCategories(first: 10) {
           nodes {
@@ -41,7 +41,7 @@ export namespace Repository {
       }
     }`;
 
-    const { repository } = await fetchGraphql(query);
+    const { repository } = await fetchGraphql(query, { owner, name });
 
     return repository.id as string;
   }
@@ -63,13 +63,13 @@ export namespace Repository {
 _This discussion has been created from a [slack discussion](${slackURL}). Please [open an issue](https://github.com/asyncapi/website/issues) if something is wrong here :)_
     `;
     const query = `
-      mutation {
+      mutation($repositoryId: ID!, $title: String!, $body: String!, $categoryId: ID!) {
         createDiscussion(
           input: {
-            repositoryId: "${repositoryId}"
-            title: "${discussion.title}"
-            body: "${body}"
-            categoryId: "${categoryId}"
+            repositoryId: $repositoryId
+            title: $title
+            body: $body
+            categoryId: $categoryId
           }
         ) {
           discussion {
@@ -79,7 +79,12 @@ _This discussion has been created from a [slack discussion](${slackURL}). Please
         }
       }
     `;
-    const { createDiscussion } = await fetchGraphql(query);
+    const { createDiscussion } = await fetchGraphql(query, {
+      repositoryId,
+      title: discussion.title ?? '',
+      body,
+      categoryId
+    });
     const discussionId = createDiscussion.discussion.id;
     const discussionURL = createDiscussion.discussion.url;
 
@@ -89,11 +94,11 @@ _This discussion has been created from a [slack discussion](${slackURL}). Please
   export async function createDicussionReply(gitHubDiscussionId: string,
     reply: Reply): Promise<string> {
     const query = `
-      mutation {
+      mutation($discussionId: ID!, $body: String!) {
         addDiscussionComment(
           input: {
-            discussionId: "${gitHubDiscussionId}"
-            body: "${reply.body}"
+            discussionId: $discussionId
+            body: $body
           }
           ) {
             comment {
@@ -102,7 +107,7 @@ _This discussion has been created from a [slack discussion](${slackURL}). Please
           }
         }
     `;
-    const { addDiscussionComment } = await fetchGraphql(query);
+    const { addDiscussionComment } = await fetchGraphql(query, { discussionId: gitHubDiscussionId, body: reply.body ?? '' });
 
     return addDiscussionComment.comment.id;
   }
@@ -113,14 +118,14 @@ _This discussion has been created from a [slack discussion](${slackURL}). Please
    */
   export async function markAnswer(commentId: string) {
     await fetchGraphql(`
-      mutation {
-        markDiscussionCommentAsAnswer(input: {id: "${commentId}" }) {
+      mutation($id: ID!) {
+        markDiscussionCommentAsAnswer(input: {id: $id }) {
           discussion {
             id
           }
         }
       }
-      `).catch((err) => {
+      `, { id: commentId }).catch((err) => {
       // do nothing since the type of discussion does not accept answers.
     });
   }
