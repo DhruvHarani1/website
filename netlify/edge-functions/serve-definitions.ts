@@ -69,7 +69,21 @@ export default async (request: Request, context: Context) => {
 };
 
 function buildRewrite(originalRequest: Request): (Request | null) {
-  const extractResult = SchemasRelatedRequestRegex.exec(new URL(originalRequest.url).pathname);
+  const pathname = new URL(originalRequest.url).pathname;
+
+  // Reject encoded separators and dot-segments so a crafted path cannot escape the intended
+  // raw.githubusercontent.com directory (the request is sent with our GitHub token).
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  if (decodedPath.includes('..') || decodedPath.includes('\\') || /%2f|%5c|%2e/i.test(pathname)) {
+    return null;
+  }
+
+  const extractResult = SchemasRelatedRequestRegex.exec(pathname);
   // No need to rewrite the request if it's not a legitimate request for a definition file
   if (extractResult === null || extractResult.length < 2 || !extractResult[2]) {
     return null;
@@ -86,11 +100,15 @@ function buildRewrite(originalRequest: Request): (Request | null) {
     url = `${URL_DEST_DEFINITIONS  }/${definitionVersion}${file}`;
   }
 
-  originalRequest.headers.set('Authorization', `token ${  GITHUB_TOKEN}`);
+  // Build headers from scratch: never forward the visitor's Cookie/Authorization/etc. to GitHub.
+  const headers = new Headers({ Accept: originalRequest.headers.get('Accept') ?? '*/*' });
+  const ifNoneMatch = originalRequest.headers.get('If-None-Match');
+  if (ifNoneMatch) headers.set('If-None-Match', ifNoneMatch);
+  if (GITHUB_TOKEN) headers.set('Authorization', `token ${GITHUB_TOKEN}`);
 
   return new Request(url, {
-    method: originalRequest.method,
-    headers: originalRequest.headers,
+    method: originalRequest.method === 'HEAD' ? 'HEAD' : 'GET',
+    headers,
   });
 }
 

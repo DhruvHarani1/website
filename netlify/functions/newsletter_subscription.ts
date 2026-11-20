@@ -2,6 +2,8 @@ import type { Handler, HandlerEvent } from '@netlify/functions';
 
 const KIT_BASE = 'https://api.kit.com/v4';
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_NAME_LENGTH = 100;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const INTEREST_TO_ENV = {
   Newsletter: 'KIT_NEWSLETTER_TAG_ID',
@@ -67,7 +69,13 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   const { email, name, interest } = body as Partial<Record<'email' | 'name' | 'interest', unknown>>;
 
-  if (typeof email !== 'string' || typeof interest !== 'string' || !isValidInterest(interest)) {
+  if (
+    typeof email !== 'string' ||
+    email.length > 254 ||
+    !EMAIL_PATTERN.test(email) ||
+    typeof interest !== 'string' ||
+    !isValidInterest(interest)
+  ) {
     return {
       statusCode: 400,
       body: JSON.stringify({ message: 'Invalid subscription request.' })
@@ -91,7 +99,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
     };
   }
 
-  const firstName = typeof name === 'string' ? name : '';
+  const firstName = typeof name === 'string' ? name.slice(0, MAX_NAME_LENGTH) : '';
 
   const headers = {
     'X-Kit-Api-Key': process.env.KIT_API_KEY,

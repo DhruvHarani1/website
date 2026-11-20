@@ -48,16 +48,30 @@ export namespace Slack {
       .catch(console.error);
   }
 
+  function isSlackResponseUrl(responseUrl: string): boolean {
+    try {
+      const url = new URL(responseUrl);
+
+      return url.protocol === 'https:' && url.hostname === 'hooks.slack.com';
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Shows a message in the slack channel that is only visible to the user that triggered the action.
    * @param responseUrl response_url of the action that triggers the endpoint.
    * @param message The message that you want to post.
    */
   export async function sendResponse(responseUrl: string, message: string) {
+    // response_url comes from the request payload; only ever post to Slack to prevent SSRF.
+    if (!isSlackResponseUrl(responseUrl)) {
+      console.error('Refusing to post to a non-Slack response_url.');
+
+      return;
+    }
     try {
-      await axios.post(responseUrl, {
-        text: message,
-      });
+      await axios.post(responseUrl, { text: message }, { maxRedirects: 0, timeout: 10000 });
     } catch (err) {
       err.message = `Unable to send a response to: ${responseUrl}`;
       console.error(err);
