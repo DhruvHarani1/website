@@ -20,7 +20,33 @@ interface ToolsCardProp {
  * @param {ToolsCardProp} props - Props for the ToolsCard component.
  * @param {ToolData} props.toolData - Data of the tool.
  */
-export default function ToolsCard({ toolData }: ToolsCardProp) {
+/**
+ * Tool data is contributed by third-party repositories, so only http(s) URLs may be rendered as links.
+ * Anything else (e.g. `javascript:` or `data:` URLs) is dropped to prevent script execution on click.
+ */
+const isSafeUrl = (url?: string): boolean => {
+  try {
+    return !!url && ['http:', 'https:'].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+};
+
+const sanitizeLinks = (toolData: ToolData): ToolData => {
+  const links = { ...(toolData?.links || {}) } as Record<string, string | undefined>;
+
+  (['repoUrl', 'websiteUrl', 'docsUrl'] as const).forEach((key) => {
+    if (links[key] && !isSafeUrl(links[key])) {
+      delete links[key];
+    }
+  });
+
+  return { ...toolData, links } as ToolData;
+};
+
+export default function ToolsCard({ toolData: rawToolData }: ToolsCardProp) {
+  const toolData = sanitizeLinks(rawToolData);
+
   const [showDescription, setShowDescription] = useState<boolean>(false);
   const [isTruncated, setIsTruncated] = useState<boolean>(false);
   const [readMore, setReadMore] = useState<boolean>(false);
